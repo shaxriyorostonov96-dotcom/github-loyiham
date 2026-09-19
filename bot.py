@@ -1,17 +1,51 @@
 import os
+import time
+import logging
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
 import telebot
 from telebot import types
 from groq import Groq
-import time
-import logging
+
 
 # ==================================================
-# CHATUZB AI BOT
+# CHATUZB AI
 # ==================================================
+
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-# Majburiy kanal
+
 CHANNEL_USERNAME = "@shaxriyordasturchi_uz"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+
+# ==================================================
+# ENVIRONMENT TEKSHIRISH
+# ==================================================
+
+if not TELEGRAM_BOT_TOKEN:
+    raise ValueError("TELEGRAM_BOT_TOKEN topilmadi!")
+
+if not GROQ_API_KEY:
+    raise ValueError("GROQ_API_KEY topilmadi!")
+
+
+# ==================================================
+# BOT
+# ==================================================
+
+bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
+client = Groq(api_key=GROQ_API_KEY)
+
+
+# ==================================================
+# SHAXRIYOR HAQIDA
+# ==================================================
 
 SHAXRIYOR_INFO = """
 Dasturchi Ostonov Shaxriyor — ChatUZB AI loyihasini yaratgan dasturchi.
@@ -27,25 +61,17 @@ beradigan aqlli Telegram yordamchi sifatida ishlab chiqmoqda.
 Telegram kanali: @shaxriyordasturchi_uz
 """
 
-# ==================================================
-# SOZLAMALAR
-# ==================================================
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
-bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
-client = Groq(api_key=GROQ_API_KEY)
 
 # ==================================================
-# KANALGA OBUNA TEKSHIRISH
+# KANAL OBUNASINI TEKSHIRISH
 # ==================================================
 
 def check_subscription(user_id):
     try:
-        member = bot.get_chat_member(CHANNEL_USERNAME, user_id)
+        member = bot.get_chat_member(
+            CHANNEL_USERNAME,
+            user_id
+        )
 
         return member.status in [
             "creator",
@@ -59,6 +85,7 @@ def check_subscription(user_id):
 
 
 def subscription_message(chat_id):
+
     markup = types.InlineKeyboardMarkup()
 
     button = types.InlineKeyboardButton(
@@ -76,7 +103,8 @@ def subscription_message(chat_id):
 
     bot.send_message(
         chat_id,
-        "🔒 <b>ChatUZB AI'dan foydalanish uchun kanalga obuna bo‘ling.</b>\n\n"
+        "🔒 <b>ChatUZB AI'dan foydalanish uchun "
+        "kanalga obuna bo‘ling.</b>\n\n"
         "1️⃣ Kanalga kiring\n"
         "2️⃣ <b>Obuna bo‘lish</b> tugmasini bosing\n"
         "3️⃣ Keyin <b>Obunani tekshirish</b> tugmasini bosing.",
@@ -86,7 +114,7 @@ def subscription_message(chat_id):
 
 
 # ==================================================
-# /START
+# START
 # ==================================================
 
 @bot.message_handler(commands=["start"])
@@ -110,7 +138,7 @@ def start(message):
 
 
 # ==================================================
-# OBUNANI TEKSHIRISH TUGMASI
+# OBUNANI TEKSHIRISH
 # ==================================================
 
 @bot.callback_query_handler(
@@ -154,8 +182,8 @@ def ask_ai(user_text):
                 "role": "system",
                 "content": (
                     "Sen ChatUZB AI nomli aqlli yordamchisan. "
-                    "Foydalanuvchiga o‘zbek tilida aniq, tushunarli "
-                    "va foydali javob ber. "
+                    "Foydalanuvchiga aniq, tushunarli va foydali "
+                    "javob ber. "
                     "Agar foydalanuvchi boshqa tilda yozsa, "
                     "shu tilda javob ber."
                 )
@@ -173,15 +201,12 @@ def ask_ai(user_text):
 
 
 # ==================================================
-# BARCHA XABARLAR
+# MATN XABARLARI
 # ==================================================
 
-@bot.message_handler(
-    content_types=["text"]
-)
+@bot.message_handler(content_types=["text"])
 def handle_message(message):
 
-    # Kanal obunasini tekshirish
     if not check_subscription(message.from_user.id):
         subscription_message(message.chat.id)
         return
@@ -189,9 +214,7 @@ def handle_message(message):
     user_text = message.text.strip()
     text_lower = user_text.lower()
 
-    # ==================================================
     # SHAXRIYOR HAQIDA
-    # ==================================================
 
     shaxriyor_words = [
         "shaxriyor kim",
@@ -204,15 +227,15 @@ def handle_message(message):
     ]
 
     if any(word in text_lower for word in shaxriyor_words):
+
         bot.send_message(
             message.chat.id,
             SHAXRIYOR_INFO
         )
+
         return
-    
-    # ==================================================
-    # MAXSUS JAVOBLAR
-    # ==================================================
+
+    # KIM YARATDI
 
     creator_words = [
         "seni kim yaratdi",
@@ -233,11 +256,10 @@ def handle_message(message):
             "tomonidan yaratildim.",
             parse_mode="HTML"
         )
+
         return
 
-    # ==================================================
     # ISM
-    # ==================================================
 
     if text_lower in [
         "isming nima",
@@ -250,11 +272,10 @@ def handle_message(message):
             "🤖 Mening ismim <b>ChatUZB AI</b>.",
             parse_mode="HTML"
         )
+
         return
 
-    # ==================================================
     # SALOM
-    # ==================================================
 
     if text_lower in [
         "salom",
@@ -270,11 +291,10 @@ def handle_message(message):
             "Savolingizni yozing, yordam beraman.",
             parse_mode="HTML"
         )
+
         return
 
-    # ==================================================
-    # AI JAVOB
-    # ==================================================
+    # AI
 
     try:
 
@@ -302,87 +322,7 @@ def handle_message(message):
 
 
 # ==================================================
-# BOTNI ISHGA TUSHIRISH
-# ==================================================
-
-print()
-print("=" * 50)
-print("CHATUZB AI BOT")
-print("Professional AI Assistant")
-print("=" * 50)
-print("🤖 ChatUZB AI ishga tushmoqda...")
-
-# ==================================================
-# RASM QABUL QILISH
-# ==================================================
-
-@bot.message_handler(content_types=["photo"])
-def handle_photo(message):
-
-    if not check_subscription(message.from_user.id):
-        subscription_message(message.chat.id)
-        return
-
-    bot.reply_to(
-        message,
-        "🖼️ Rasm qabul qilindi!"
-    )
-
-    # ==================================================
-# VIDEO QABUL QILISH
-# ==================================================
-
-@bot.message_handler(content_types=["video"])
-def handle_video(message):
-
-    if not check_subscription(message.from_user.id):
-        subscription_message(message.chat.id)
-        return
-
-    bot.reply_to(
-        message,
-        "🎥 Video qabul qilindi!"
-    )
-
-    # ==================================================
-# FAYL QABUL QILISH
-# ==================================================
-
-@bot.message_handler(content_types=["document"])
-def handle_document(message):
-
-    if not check_subscription(message.from_user.id):
-        subscription_message(message.chat.id)
-        return
-
-    bot.reply_to(
-        message,
-        "📁 Fayl qabul qilindi!"
-    )
-
-    # ==================================================
-# LOKATSIYA QABUL QILISH
-# ==================================================
-
-@bot.message_handler(content_types=["location"])
-def handle_location(message):
-
-    if not check_subscription(message.from_user.id):
-        subscription_message(message.chat.id)
-        return
-
-    latitude = message.location.latitude
-    longitude = message.location.longitude
-
-    bot.reply_to(
-        message,
-        f"📍 Lokatsiya qabul qilindi!\n\n"
-        f"Latitude: {latitude}\n"
-        f"Longitude: {longitude}"
-    )
-
-    # ==================================================
-# RASM QABUL QILISH
+# RASM
 # ==================================================
 
 @bot.message_handler(content_types=["photo"])
@@ -399,7 +339,7 @@ def handle_photo(message):
 
 
 # ==================================================
-# VIDEO QABUL QILISH
+# VIDEO
 # ==================================================
 
 @bot.message_handler(content_types=["video"])
@@ -416,7 +356,7 @@ def handle_video(message):
 
 
 # ==================================================
-# FAYL QABUL QILISH
+# FAYL
 # ==================================================
 
 @bot.message_handler(content_types=["document"])
@@ -433,7 +373,7 @@ def handle_document(message):
 
 
 # ==================================================
-# LOKATSIYA QABUL QILISH
+# LOKATSIYA
 # ==================================================
 
 @bot.message_handler(content_types=["location"])
@@ -454,22 +394,94 @@ def handle_location(message):
     )
 
 
+# ==================================================
+# RENDER PORT SERVER
+# ==================================================
 
-while True:
+class HealthHandler(BaseHTTPRequestHandler):
 
-    try:
+    def do_GET(self):
 
-        print("✅ Telegram bot ishlayapti!")
+        self.send_response(200)
+        self.send_header(
+            "Content-type",
+            "text/plain"
+        )
+        self.end_headers()
 
-        bot.infinity_polling(
-            timeout=60,
-            long_polling_timeout=60
+        self.wfile.write(
+            b"ChatUZB AI is running!"
         )
 
-    except Exception as e:
+    def log_message(self, format, *args):
+        return
 
-        logging.error(f"Bot xatosi: {e}")
 
-        print("🔄 5 soniyadan keyin qayta ishga tushadi...")
+def start_server():
 
-        time.sleep(5)
+    port = int(
+        os.environ.get(
+            "PORT",
+            10000
+        )
+    )
+
+    server = HTTPServer(
+        ("0.0.0.0", port),
+        HealthHandler
+    )
+
+    print(
+        f"🌐 HTTP server {port}-portda ishlayapti..."
+    )
+
+    server.serve_forever()
+
+
+# ==================================================
+# ISHGA TUSHIRISH
+# ==================================================
+
+if __name__ == "__main__":
+
+    print()
+    print("=" * 50)
+    print("CHATUZB AI BOT")
+    print("Professional AI Assistant")
+    print("=" * 50)
+
+    # Render uchun HTTP server
+    server_thread = threading.Thread(
+        target=start_server,
+        daemon=True
+    )
+
+    server_thread.start()
+
+    # Telegram bot
+    while True:
+
+        try:
+
+            print(
+                "🤖 Telegram bot ishlayapti!"
+            )
+
+            bot.infinity_polling(
+                timeout=60,
+                long_polling_timeout=60,
+                skip_pending=True
+            )
+
+        except Exception as e:
+
+            logging.error(
+                f"Bot xatosi: {e}"
+            )
+
+            print(
+                "🔄 5 soniyadan keyin "
+                "qayta ishga tushadi..."
+            )
+
+            time.sleep(5)
